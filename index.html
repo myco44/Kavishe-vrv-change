@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kavishe Live Caption Cam</title>
+  <style>
+    :root{--bg:#0b1220;--card:#111a2b;--ink:#e8eefc;--accent:#5ab0ff;--muted:#7f8ba3;}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b1220,#0e1527);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
+    header{padding:14px 16px;border-bottom:1px solid #1e2a44;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#0b1220;position:sticky;top:0;z-index:10}
+    header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+    .badge{font-size:12px;color:#0b1220;background:var(--accent);padding:4px 8px;border-radius:999px}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    .card{background:var(--card);border:1px solid #1e2a44;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25);overflow:hidden}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid #1e2a44;font-size:14px;color:#cfe0ff;letter-spacing:.3px;background:#0f1830}
+    .video-box{position:relative;aspect-ratio:16/9;background:#0a0f1d;display:flex;align-items:center;justify-content:center}
+    video{width:100%;height:100%;object-fit:cover;background:#000}
+    .live-pill{position:absolute;top:12px;left:12px;background:#ff4d4f;color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;display:none}
+    .lang{display:flex;gap:8px;flex-wrap:wrap;padding:12px}
+    select, input[type="checkbox"]+label{font-size:13px}
+    select{background:#0b1220;color:var(--ink);border:1px solid #203255;border-radius:10px;padding:8px}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid #1e2a44;background:#0f1830}
+    button{appearance:none;background:#152443;color:#dbe8ff;border:1px solid #26406e;padding:10px 12px;border-radius:12px;font-weight:600;font-size:13px;cursor:pointer;transition:.15s;box-shadow:0 2px 0 #0c1527}
+    button:hover{transform:translateY(-1px)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .primary{background:var(--accent);color:#041022;border-color:#5ab0ff;box-shadow:0 2px 0 #2a73b8}
+    .danger{background:#ff4d4f;color:#000;border-color:#ff8082}
+    .ok{background:#19c37d;color:#041022;border-color:#41d09a}
+    .meters{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid #1e2a44;background:#0f1830}
+    .bar{flex:1;height:10px;background:#0a1222;border-radius:999px;overflow:hidden}
+    .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#4da3ff,#41d09a)}
+    .small{font-size:12px;color:var(--muted)}
+    .transcript{padding:12px;min-height:220px;max-height:55vh;overflow:auto;line-height:1.6}
+    .line{padding:6px 8px;border-left:3px solid #294976;background:#0b1427;border-radius:6px;margin:6px 0}
+    .time{color:#9fb3d8;font-size:12px;margin-right:8px}
+    .interim{opacity:.7;border-left-color:#3a6bb3}
+    .footer-note{padding:10px 14px;border-top:1px solid #1e2a44;color:#9fb3d8;font-size:12px;background:#0f1830}
+    canvas{display:none}
+    @media (max-width:900px){.wrap{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎥 Kavishe Live Caption Cam</h1>
+    <span class="badge">Beta</span>
+  </header>
+
+  <div class="wrap">
+    <!-- LEFT: Camera + controls -->
+    <section class="card">
+      <h3>Camera</h3>
+      <div class="video-box">
+        <video id="preview" playsinline autoplay muted></video>
+        <span id="livePill" class="live-pill">● LIVE</span>
+      </div>
+
+      <div class="lang">
+        <label>
+          Lugha ya kusikiliza:
+          <select id="lang">
+            <option value="sw-TZ">Kiswahili (Tanzania)</option>
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="fr-FR">Français</option>
+            <option value="ar-KE">العربية (Kenya)</option>
+          </select>
+        </label>
+        <label>
+          Njia ya kamera:
+          <select id="facing">
+            <option value="environment">Nyuma (rear)</option>
+            <option value="user">Mbele (selfie)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="controls">
+        <button id="startCam" class="primary">Washa Kamera</button>
+        <button id="flipCam">Badilisha Kamera</button>
+        <button id="snap" class="ok" disabled>Piga Picha + Andika</button>
+        <button id="stopCam" class="danger" disabled>Zima Kamera</button>
+      </div>
+
+      <div class="meters">
+        <div class="bar"><i id="vu"></i></div>
+        <span class="small" id="vuTxt">Mic: —</span>
+      </div>
+
+      <div class="controls" style="border-top:none">
+        <button id="startSTT" class="primary" disabled>Anzisha Uandishi (STT)</button>
+        <button id="stopSTT" class="danger" disabled>Acha Uandishi</button>
+        <button id="copyAll">Copy Yote</button>
+        <button id="downloadTxt">Pakua .txt</button>
+        <button id="clearAll">Futa</button>
+      </div>
+
+      <div class="footer-note">
+        Vidokezo: Hii hutumia <b>Mic ya kifaa</b> kutambua sauti wakati kamera inaonyesha video. Inahitaji HTTPS na inafanya kazi vizuri kwenye Chrome/Edge kwenye Android.
+      </div>
+    </section>
+
+    <!-- RIGHT: Transcript -->
+    <section class="card">
+      <h3>Matokeo (Live Captions)</h3>
+      <div id="out" class="transcript" aria-live="polite"></div>
+      <div class="footer-note">
+        Hifadhi moja kwa moja: <span id="autosave" class="small">inatumika…</span>
+      </div>
+    </section>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    // ---------- Helpers ----------
+    const $ = sel => document.querySelector(sel);
+    const preview = $('#preview');
+    const out = $('#out');
+    const livePill = $('#livePill');
+    const langSel = $('#lang');
+    const facingSel = $('#facing');
+    const startCamBtn = $('#startCam');
+    const stopCamBtn = $('#stopCam');
+    const flipCamBtn = $('#flipCam');
+    const snapBtn = $('#snap');
+    const startSTTBtn = $('#startSTT');
+    const stopSTTBtn = $('#stopSTT');
+    const copyBtn = $('#copyAll');
+    const dlBtn = $('#downloadTxt');
+    const clearBtn = $('#clearAll');
+    const vu = $('#vu');
+    const vuTxt = $('#vuTxt');
+    const autosave = $('#autosave');
+    const canvas = $('#canvas');
+
+    let camStream = null;
+    let micStream = null;
+    let currentFacing = 'environment';
+    let recognition = null;
+    let listening = false;
+    let interimSpan = null;
+    let lines = []; // {t: timestamp, text: string}
+    let lastLineTs = null;
+
+    // Restore previous transcript
+    try {
+      const saved = localStorage.getItem('kavishe_caption_lines');
+      if (saved) {
+        lines = JSON.parse(saved);
+        redrawTranscript();
+      }
+    } catch(e){}
+
+    function timestamp() {
+      const d = new Date();
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+
+    function addLine(text, isInterim=false) {
+      if (!text) return;
+      if (isInterim) {
+        if (!interimSpan) {
+          interimSpan = document.createElement('div');
+          interimSpan.className = 'line interim';
+          interimSpan.innerHTML = `<span class="time">${timestamp()}</span><span class="txt"></span>`;
+          out.appendChild(interimSpan);
+        }
+        interimSpan.querySelector('.txt').textContent = text;
+        out.scrollTop = out.scrollHeight;
+        return;
+      }
+      // finalize: move interim into a real line OR append new
+      const entry = { t: Date.now(), text: text.trim() };
+      lines.push(entry);
+      const div = document.createElement('div');
+      div.className = 'line';
+      div.innerHTML = `<span class="time">${timestamp()}</span>${escapeHtml(entry.text)}`;
+      out.appendChild(div);
+      out.scrollTop = out.scrollHeight;
+      interimSpan?.remove();
+      interimSpan = null;
+      persist();
+    }
+
+    function redrawTranscript() {
+      out.innerHTML = '';
+      lines.forEach(entry=>{
+        const div = document.createElement('div');
+        div.className = 'line';
+        div.innerHTML = `<span class="time">${new Date(entry.t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</span>${escapeHtml(entry.text)}`;
+        out.appendChild(div);
+      });
+      out.scrollTop = out.scrollHeight;
+    }
+
+    function allText() {
+      return lines.map(x => `[${new Date(x.t).toLocaleTimeString()}] ${x.text}`).join('\n');
+    }
+
+    function persist() {
+      try {
+        localStorage.setItem('kavishe_caption_lines', JSON.stringify(lines));
+        autosave.textContent = 'imehifadhiwa';
+      } catch(e) {
+        autosave.textContent = 'imeshindwa kuhifadhi';
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    // ---------- Camera ----------
+    async function startCamera() {
+      try {
+        camStream?.getTracks().forEach(t=>t.stop());
+        const constraints = { video: { facingMode: currentFacing }, audio: false };
+        camStream = await navigator.mediaDevices.getUserMedia(constraints);
+        preview.srcObject = camStream;
+        await preview.play().catch(()=>{});
+        livePill.style.display = 'inline-block';
+        snapBtn.disabled = false;
+        stopCamBtn.disabled = false;
+        startCamBtn.disabled = true;
+      } catch (err) {
+        alert('Imeshindikana kuwasha kamera: ' + err.message);
+      }
+    }
+
+    function stopCamera() {
+      camStream?.getTracks().forEach(t=>t.stop());
+      camStream = null;
+      preview.srcObject = null;
+      livePill.style.display = 'none';
+      snapBtn.disabled = true;
+      stopCamBtn.disabled = true;
+      startCamBtn.disabled = false;
+    }
+
+    flipCamBtn.addEventListener('click', async ()=>{
+      currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+      facingSel.value = currentFacing;
+      if (camStream) await startCamera();
+    });
+
+    facingSel.addEventListener('change', async ()=>{
+      currentFacing = facingSel.value;
+      if (camStream) await startCamera();
+    });
+
+    startCamBtn.addEventListener('click', startCamera);
+    stopCamBtn.addEventListener('click', stopCamera);
+
+    // ---------- Mic VU Meter ----------
+    let audioCtx, analyser, dataArray;
+    async function startMicMeter() {
+      try {
+        micStream?.getTracks().forEach(t=>t.stop());
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        src.connect(analyser);
+        drawVU();
+      } catch (e) {
+        vuTxt.textContent = 'Mic: haipatikani';
+      }
+    }
+
+    function drawVU() {
+      if (!analyser) return;
+      analyser.getByteTimeDomainData(dataArray);
+      // RMS
+      let sum = 0;
+      for (let i=0;i<dataArray.length;i++){
+        const v = (dataArray[i] - 128) / 128;
+        sum += v*v;
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+      const pct = Math.min(100, Math.max(0, Math.round(rms * 180)));
+      vu.style.width = pct + '%';
+      vuTxt.textContent = 'Mic: ' + pct + '%';
+      requestAnimationFrame(drawVU);
+    }
+
+    // ---------- Speech Recognition ----------
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+    function setupRecognition() {
+      if (!SR) {
+        startSTTBtn.disabled = true;
+        stopSTTBtn.disabled = true;
+        alert('Samahani, kifaa/Browser hakina Web Speech API. Jaribu Chrome/Edge kwenye Android na uendeshe kwenye HTTPS.');
+        return;
+      }
+      recognition = new SR();
+      recognition.lang = langSel.value || 'sw-TZ';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (e)=>{
+        let interimText = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const res = e.results[i];
+          const txt = res[0].transcript;
+          if (res.isFinal) {
+            addLine(txt, false);
+          } else {
+            interimText += txt;
+          }
+        }
+        if (interimText) addLine(interimText, true);
+      };
+
+      recognition.onend = ()=>{
+        listening = false;
+        stopSTTBtn.disabled = true;
+        startSTTBtn.disabled = false;
+      };
+
+      recognition.onerror = (e)=>{
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          alert('Ruhusu matumizi ya Mic ili kuandika maneno (STT).');
+        } else if (e.error === 'no-speech') {
+          // do nothing; common on silence
+        } else {
+          console.warn('STT error:', e.error);
+        }
+      };
+    }
+
+    function startSTT() {
+      if (!recognition) setupRecognition();
+      try {
+        recognition.lang = langSel.value || 'sw-TZ';
+        recognition.start();
+        listening = true;
+        startSTTBtn.disabled = true;
+        stopSTTBtn.disabled = false;
+      } catch(e) {
+        // ignore duplicate start
+      }
+    }
+
+    function stopSTT() {
+      try { recognition?.stop(); } catch(e){}
+      listening = false;
+      stopSTTBtn.disabled = true;
+      startSTTBtn.disabled = false;
+      if (interimSpan) { // finalize leftover interim visually (optional: drop it)
+        interimSpan.remove(); interimSpan = null;
+      }
+    }
+
+    // ---------- Snap + caption ----------
+    snapBtn.addEventListener('click', ()=>{
+      if (!camStream) return;
+      const track = camStream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      const w = settings.width || preview.videoWidth || 1280;
+      const h = settings.height || preview.videoHeight || 720;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(preview, 0, 0, w, h);
+      // draw a semi-transparent caption box with the latest text
+      const latest = (lines.at(-1)?.text || '').trim();
+      if (latest) {
+        const pad = 18;
+        const boxW = w;
+        const boxH = 72;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, h - boxH - 0, boxW, boxH);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px system-ui, sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(latest.slice(0, 96), pad, h - boxH/2);
+      }
+      // open image in new tab
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kavishe-snap-${Date.now()}.png`;
+      a.click();
+    });
+
+    // ---------- Top-level actions ----------
+    startSTTBtn.addEventListener('click', startSTT);
+    stopSTTBtn.addEventListener('click', stopSTT);
+
+    langSel.addEventListener('change', ()=>{
+      if (recognition && listening) {
+        stopSTT(); startSTT();
+      }
+    });
+
+    copyBtn.addEventListener('click', async ()=>{
+      try {
+        await navigator.clipboard.writeText(allText());
+        copyBtn.textContent = 'Imecopy ✓';
+        setTimeout(()=>copyBtn.textContent='Copy Yote', 1200);
+      } catch(e){
+        alert('Imeshindikana ku-copy: ' + e.message);
+      }
+    });
+
+    dlBtn.addEventListener('click', ()=>{
+      const blob = new Blob([allText()], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `kavishe-transcript-${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+      if (!confirm('Futa maandishi yote?')) return;
+      lines = [];
+      out.innerHTML = '';
+      persist();
+    });
+
+    // ---------- Init ----------
+    (async function init(){
+      await startMicMeter();          // start mic meter (separate mic permission)
+      setupRecognition();             // prep STT
+      // Enable STT start if supported
+      if (SR) startSTTBtn.disabled = false;
+      // Autostart camera for quicker UX if allowed (non-blocking)
+      try { await startCamera(); } catch(e){}
+    })();
+  </script>
+</body>
+</html>
