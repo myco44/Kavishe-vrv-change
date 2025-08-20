@@ -1,437 +1,519 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sw">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kavishe Live Caption Cam</title>
-  <style>
-    :root{--bg:#0b1220;--card:#111a2b;--ink:#e8eefc;--accent:#5ab0ff;--muted:#7f8ba3;}
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(180deg,#0b1220,#0e1527);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
-    header{padding:14px 16px;border-bottom:1px solid #1e2a44;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#0b1220;position:sticky;top:0;z-index:10}
-    header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
-    .badge{font-size:12px;color:#0b1220;background:var(--accent);padding:4px 8px;border-radius:999px}
-    .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
-    .card{background:var(--card);border:1px solid #1e2a44;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25);overflow:hidden}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid #1e2a44;font-size:14px;color:#cfe0ff;letter-spacing:.3px;background:#0f1830}
-    .video-box{position:relative;aspect-ratio:16/9;background:#0a0f1d;display:flex;align-items:center;justify-content:center}
-    video{width:100%;height:100%;object-fit:cover;background:#000}
-    .live-pill{position:absolute;top:12px;left:12px;background:#ff4d4f;color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;display:none}
-    .lang{display:flex;gap:8px;flex-wrap:wrap;padding:12px}
-    select, input[type="checkbox"]+label{font-size:13px}
-    select{background:#0b1220;color:var(--ink);border:1px solid #203255;border-radius:10px;padding:8px}
-    .controls{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid #1e2a44;background:#0f1830}
-    button{appearance:none;background:#152443;color:#dbe8ff;border:1px solid #26406e;padding:10px 12px;border-radius:12px;font-weight:600;font-size:13px;cursor:pointer;transition:.15s;box-shadow:0 2px 0 #0c1527}
-    button:hover{transform:translateY(-1px)}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    .primary{background:var(--accent);color:#041022;border-color:#5ab0ff;box-shadow:0 2px 0 #2a73b8}
-    .danger{background:#ff4d4f;color:#000;border-color:#ff8082}
-    .ok{background:#19c37d;color:#041022;border-color:#41d09a}
-    .meters{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid #1e2a44;background:#0f1830}
-    .bar{flex:1;height:10px;background:#0a1222;border-radius:999px;overflow:hidden}
-    .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#4da3ff,#41d09a)}
-    .small{font-size:12px;color:var(--muted)}
-    .transcript{padding:12px;min-height:220px;max-height:55vh;overflow:auto;line-height:1.6}
-    .line{padding:6px 8px;border-left:3px solid #294976;background:#0b1427;border-radius:6px;margin:6px 0}
-    .time{color:#9fb3d8;font-size:12px;margin-right:8px}
-    .interim{opacity:.7;border-left-color:#3a6bb3}
-    .footer-note{padding:10px 14px;border-top:1px solid #1e2a44;color:#9fb3d8;font-size:12px;background:#0f1830}
-    canvas{display:none}
-    @media (max-width:900px){.wrap{grid-template-columns:1fr}}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kavishe Voice Lab — Improved (Record, Upload, Presets, TTS)</title>
+<style>
+  :root{--bg:#061021;--card:#082035;--accent:#4da3ff;--muted:#9fb3d8}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:linear-gradient(180deg,var(--bg),#04101a);color:#eaf3ff}
+  .wrap{max-width:1100px;margin:18px auto;padding:12px;display:grid;grid-template-columns:1fr;gap:12px}
+  h1{margin:0 0 6px;font-size:20px}
+  .card{background:var(--card);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.03)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button,select,input[type="range"],input[type="file"],textarea{background:#06293f;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+  button.primary{background:var(--accent);color:#012030}
+  .small{font-size:13px;color:var(--muted)}
+  #waveCanvas{width:100%;height:80px;background:#00121a;border-radius:6px}
+  #videoPreview{width:100%;max-height:240px;background:#000;border-radius:6px}
+  .presetList{display:flex;gap:8px;flex-wrap:wrap}
+  .presetBtn{padding:6px 10px;border-radius:8px;background:#072a3a;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+  .danger{background:#8b2233}
+  .note{font-size:12px;color:#cdd9ff}
+</style>
 </head>
 <body>
-  <header>
-    <h1>🎥 Kavishe Live Caption Cam</h1>
-    <span class="badge">Beta</span>
-  </header>
-
   <div class="wrap">
-    <!-- LEFT: Camera + controls -->
-    <section class="card">
-      <h3>Camera</h3>
-      <div class="video-box">
-        <video id="preview" playsinline autoplay muted></video>
-        <span id="livePill" class="live-pill">● LIVE</span>
+    <div class="card">
+      <h1>Kavishe Voice Lab — Improved</h1>
+      <div class="small">Record, upload, apply presets, Text→Speech (lahaja), play/stop, save processed WAV. Presets ni approximations. Usitumie bila idhini.</div>
+    </div>
+
+    <!-- Recording + Upload -->
+    <div class="card">
+      <div class="row">
+        <button id="startRec" class="primary">🎙️ Start Recording</button>
+        <button id="stopRec" disabled>⏹️ Stop Recording</button>
+        <button id="playRaw" disabled>▶ Raw</button>
+        <button id="playFx" disabled>▶ Preset Play</button>
+        <button id="stopPlay" class="danger" disabled>■ Stop Play</button>
+        <button id="saveFx" disabled>💾 Save Processed WAV</button>
+        <label class="small" style="margin-left:auto">Pitch: <input id="pitch" type="range" min="0.6" max="1.8" step="0.01" value="1.0"/><span id="pitchVal">1.00x</span></label>
       </div>
 
-      <div class="lang">
-        <label>
-          Lugha ya kusikiliza:
-          <select id="lang">
-            <option value="sw-TZ">Kiswahili (Tanzania)</option>
-            <option value="en-US">English (US)</option>
-            <option value="en-GB">English (UK)</option>
-            <option value="fr-FR">Français</option>
-            <option value="ar-KE">العربية (Kenya)</option>
-          </select>
-        </label>
-        <label>
-          Njia ya kamera:
-          <select id="facing">
-            <option value="environment">Nyuma (rear)</option>
-            <option value="user">Mbele (selfie)</option>
-          </select>
-        </label>
+      <div style="margin-top:10px" class="row">
+        <label class="small">Formant (sim): <input id="formant" type="range" min="-4" max="4" step="0.1" value="0"/><span id="formVal">0.0</span></label>
+        <label class="small">Reverb <input id="fxReverb" type="checkbox"/></label>
+        <label class="small">Distort <input id="fxDist" type="checkbox"/></label>
+        <label class="small">Robot <input id="fxRobot" type="checkbox"/></label>
       </div>
 
-      <div class="controls">
-        <button id="startCam" class="primary">Washa Kamera</button>
-        <button id="flipCam">Badilisha Kamera</button>
-        <button id="snap" class="ok" disabled>Piga Picha + Andika</button>
-        <button id="stopCam" class="danger" disabled>Zima Kamera</button>
+      <div style="margin-top:10px" class="row">
+        <input id="upload" type="file" accept="audio/*"/>
+        <button id="useUpload" disabled>Use Uploaded</button>
+        <div class="small" style="margin-left:auto">Recorded file kept in memory — click Save to download.</div>
       </div>
 
-      <div class="meters">
-        <div class="bar"><i id="vu"></i></div>
-        <span class="small" id="vuTxt">Mic: —</span>
+      <div style="margin-top:10px">
+        <canvas id="waveCanvas"></canvas>
       </div>
+    </div>
 
-      <div class="controls" style="border-top:none">
-        <button id="startSTT" class="primary" disabled>Anzisha Uandishi (STT)</button>
-        <button id="stopSTT" class="danger" disabled>Acha Uandishi</button>
-        <button id="copyAll">Copy Yote</button>
-        <button id="downloadTxt">Pakua .txt</button>
-        <button id="clearAll">Futa</button>
+    <!-- Presets -->
+    <div class="card">
+      <h3>Presets — chagua moja</h3>
+      <div class="presetList" id="presetList">
+        <!-- many presets -->
       </div>
+      <div style="margin-top:8px" class="row">
+        <button id="applyPreset" class="primary">Apply Preset (for Play)</button>
+        <button id="storePreset">Save as Custom</button>
+      </div>
+      <div class="note" style="margin-top:8px">Presets ni set ya pitch+formant+fx. TTS lahaja zinapatikana chini.</div>
+    </div>
 
-      <div class="footer-note">
-        Vidokezo: Hii hutumia <b>Mic ya kifaa</b> kutambua sauti wakati kamera inaonyesha video. Inahitaji HTTPS na inafanya kazi vizuri kwenye Chrome/Edge kwenye Android.
+    <!-- Text -> Speech -->
+    <div class="card">
+      <h3>Text → Speech (andika hapa) — chagua lahaja</h3>
+      <textarea id="ttsText" placeholder="Andika hapa... (Kiswahili)"></textarea>
+      <div class="row" style="margin-top:8px">
+        <select id="ttsLang">
+          <option value="sw-TZ">Kiswahili (Tanzania) - sw-TZ</option>
+          <option value="sw-KE">Kiswahili (Kenya) - sw-KE</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="pt-BR">Português (BR)</option>
+          <option value="ar-SA">Arabic (SA)</option>
+        </select>
+        <button id="speak">🔈 Speak</button>
+        <button id="speakWithPreset" disabled>🔈 Speak + Apply Preset (approx)</button>
+        <label class="small" style="margin-left:auto">Rate<input id="ttsRate" type="range" min="0.6" max="1.6" step="0.05" value="1.0"/><span id="ttsRateVal">1.00</span></label>
       </div>
-    </section>
+      <div class="note" style="margin-top:8px">Note: TTS voices and quality depend on browser/device. Applying FX to TTS is approximate (we use speechSynthesis for direct speak; for FX we attempt to capture via WebAudio where supported).</div>
+    </div>
 
-    <!-- RIGHT: Transcript -->
-    <section class="card">
-      <h3>Matokeo (Live Captions)</h3>
-      <div id="out" class="transcript" aria-live="polite"></div>
-      <div class="footer-note">
-        Hifadhi moja kwa moja: <span id="autosave" class="small">inatumika…</span>
-      </div>
-    </section>
+    <!-- Video cartoon is omitted here for brevity; keep previous if needed -->
+
+    <div class="card">
+      <div class="small">Status / Log:</div>
+      <textarea id="log" readonly style="height:120px"></textarea>
+    </div>
   </div>
 
-  <canvas id="canvas"></canvas>
+<script>
+/* Improved Voice Lab: record/upload/play with FX, typed-TTS, presets.
+   Limitations explained inline.
+*/
 
-  <script>
-    // ---------- Helpers ----------
-    const $ = sel => document.querySelector(sel);
-    const preview = $('#preview');
-    const out = $('#out');
-    const livePill = $('#livePill');
-    const langSel = $('#lang');
-    const facingSel = $('#facing');
-    const startCamBtn = $('#startCam');
-    const stopCamBtn = $('#stopCam');
-    const flipCamBtn = $('#flipCam');
-    const snapBtn = $('#snap');
-    const startSTTBtn = $('#startSTT');
-    const stopSTTBtn = $('#stopSTT');
-    const copyBtn = $('#copyAll');
-    const dlBtn = $('#downloadTxt');
-    const clearBtn = $('#clearAll');
-    const vu = $('#vu');
-    const vuTxt = $('#vuTxt');
-    const autosave = $('#autosave');
-    const canvas = $('#canvas');
+// Basic logger
+const logEl = document.getElementById('log');
+function log(msg){ logEl.value = new Date().toLocaleTimeString() + ' • ' + msg + '\\n' + logEl.value; }
 
-    let camStream = null;
-    let micStream = null;
-    let currentFacing = 'environment';
-    let recognition = null;
-    let listening = false;
-    let interimSpan = null;
-    let lines = []; // {t: timestamp, text: string}
-    let lastLineTs = null;
+// UI references
+const startRec = document.getElementById('startRec');
+const stopRec = document.getElementById('stopRec');
+const playRaw = document.getElementById('playRaw');
+const playFx = document.getElementById('playFx');
+const stopPlay = document.getElementById('stopPlay');
+const saveFx = document.getElementById('saveFx');
+const upload = document.getElementById('upload');
+const useUpload = document.getElementById('useUpload');
+const pitch = document.getElementById('pitch');
+const pitchVal = document.getElementById('pitchVal');
+const formant = document.getElementById('formant');
+const formVal = document.getElementById('formVal');
+const fxReverb = document.getElementById('fxReverb');
+const fxDist = document.getElementById('fxDist');
+const fxRobot = document.getElementById('fxRobot');
+const waveCanvas = document.getElementById('waveCanvas');
 
-    // Restore previous transcript
-    try {
-      const saved = localStorage.getItem('kavishe_caption_lines');
-      if (saved) {
-        lines = JSON.parse(saved);
-        redrawTranscript();
+const applyPresetBtn = document.getElementById('applyPreset');
+const presetListDiv = document.getElementById('presetList');
+const storePresetBtn = document.getElementById('storePreset');
+
+const ttsText = document.getElementById('ttsText');
+const ttsLang = document.getElementById('ttsLang');
+const speakBtn = document.getElementById('speak');
+const speakWithPresetBtn = document.getElementById('speakWithPreset');
+const ttsRate = document.getElementById('ttsRate');
+const ttsRateVal = document.getElementById('ttsRateVal');
+
+let mediaStream = null;      // mic stream used for recording
+let mediaRecorder = null;
+let recordedChunks = [];
+let audioContext = null;
+let rawAudioBuffer = null;   // AudioBuffer of recorded or uploaded audio
+let currentSource = null;    // AudioBufferSourceNode used for playback (so we can stop)
+let currentConvolver = null;
+let currentOsc = null;       // for robot
+let uploadFileBuffer = null; // arrayBuffer of uploaded file
+
+// ---------- helpers ----------
+function ensureAudioContext(){
+  if(!audioContext) audioContext = new (window.AudioContext||window.webkitAudioContext)();
+  return audioContext;
+}
+
+// ---------- Recording ----------
+startRec.onclick = async () => {
+  try {
+    if(!mediaStream) mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(mediaStream, {mimeType:'audio/webm;codecs=opus'});
+    mediaRecorder.ondataavailable = e => { if(e.data && e.data.size) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunks, {type: 'audio/webm'});
+      const arrayBuffer = await blob.arrayBuffer();
+      const ctx = ensureAudioContext();
+      rawAudioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0)); // decode
+      log('Recording saved to buffer. Duration: ' + rawAudioBuffer.duration.toFixed(2) + 's');
+      playRaw.disabled = false; playFx.disabled = false; saveFx.disabled = false; speakWithPresetBtn.disabled=false;
+      drawWave(rawAudioBuffer);
+    };
+    mediaRecorder.start();
+    startRec.disabled = true; stopRec.disabled = false;
+    log('Recording started...');
+  } catch (e) {
+    alert('Mic permission required: ' + e.message);
+    log('Recording error: ' + e.message);
+  }
+};
+
+stopRec.onclick = () => {
+  if(mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+  stopRec.disabled = true; startRec.disabled = false;
+  log('Recording stopped.');
+};
+
+// ---------- Draw waveform ----------
+function drawWave(buffer){
+  const canvas = waveCanvas;
+  const ctx = canvas.getContext('2d');
+  const dpr = devicePixelRatio || 1;
+  const w = canvas.clientWidth * dpr, h = canvas.clientHeight * dpr;
+  canvas.width = w; canvas.height = h;
+  ctx.fillStyle = '#00121a'; ctx.fillRect(0,0,w,h);
+  const data = buffer.getChannelData(0);
+  const step = Math.ceil(data.length / w);
+  ctx.lineWidth = 1 * dpr;
+  ctx.strokeStyle = '#58d0ff';
+  ctx.beginPath();
+  for(let i=0;i<w;i++){
+    let sum=0;
+    for(let j=0;j<step;j++){
+      sum += Math.abs(data[i*step + j] || 0);
+    }
+    const v = sum/step;
+    const y = (1 - v) * (h/2);
+    if(i===0) ctx.moveTo(i,y); else ctx.lineTo(i,y);
+  }
+  ctx.stroke();
+}
+
+// ---------- Playback (raw) ----------
+playRaw.onclick = async () => {
+  if(!rawAudioBuffer){ alert('Hakuna sauti'); return; }
+  const ctx = ensureAudioContext();
+  stopCurrentPlayback();
+  const src = ctx.createBufferSource(); src.buffer = rawAudioBuffer;
+  src.connect(ctx.destination);
+  src.start();
+  currentSource = src;
+  stopPlay.disabled = false;
+  log('Playing raw audio');
+  src.onended = ()=>{ stopCurrentPlayback(); log('Raw playback ended'); };
+};
+
+function stopCurrentPlayback(){
+  try{
+    if(currentSource){ currentSource.stop(); currentSource.disconnect(); currentSource = null; }
+    if(currentOsc){ currentOsc.stop?.(); currentOsc = null; }
+    if(currentConvolver){ currentConvolver.disconnect(); currentConvolver = null; }
+  }catch(e){ /* ignore */ }
+  stopPlay.disabled = true;
+}
+
+// ---------- Apply FX & playback (preset play) ----------
+function makeDistortion(ctx, amount=200){
+  const n = 44100;
+  const curve = new Float32Array(n);
+  const k = typeof amount === 'number' ? amount : 50;
+  for(let i=0;i<n;i++){
+    const x = i * 2 / n - 1;
+    curve[i] = (3 + k) * x * 20 * Math.PI/180 / (Math.PI + k * Math.abs(x));
+  }
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = curve;
+  shaper.oversample = '4x';
+  return shaper;
+}
+
+// simple impulse for reverb
+function makeImpulse(ctx, duration=1.5, decay=2){
+  const sr = ctx.sampleRate;
+  const len = Math.floor(sr * duration);
+  const buf = ctx.createBuffer(2, len, sr);
+  for(let c=0;c<2;c++){
+    const cd = buf.getChannelData(c);
+    for(let i=0;i<len;i++){
+      cd[i] = (Math.random()*2-1) * Math.pow(1 - i/len, decay);
+    }
+  }
+  return buf;
+}
+
+async function playWithPreset(buffer, preset){
+  if(!buffer) { alert('No audio to play'); return; }
+  const ctx = ensureAudioContext();
+  stopCurrentPlayback();
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  // Pitch: playbackRate (simple) — note: changes speed
+  src.playbackRate.value = preset.pitch || 1.0;
+
+  // Filters to approximate formant shift
+  const low = ctx.createBiquadFilter(); low.type='lowshelf'; low.frequency.value = 300; low.gain.value = (preset.formant||0)*-2;
+  const high = ctx.createBiquadFilter(); high.type='highshelf'; high.frequency.value=3000; high.gain.value=(preset.formant||0)*2;
+
+  // bandpass for "mzee/telephone"
+  const band = ctx.createBiquadFilter(); band.type='bandpass'; band.frequency.value = 800; band.Q.value = preset.bandQ||1;
+
+  src.connect(low); low.connect(high); high.connect(band);
+
+  let last = band;
+
+  // distortion
+  if(preset.distort){
+    const sh = makeDistortion(ctx, 400);
+    last.connect(sh); last = sh;
+  }
+
+  // reverb
+  if(preset.reverb){
+    const conv = ctx.createConvolver(); conv.buffer = makeImpulse(ctx, 1.5, 2.0);
+    last.connect(conv); last = conv;
+    currentConvolver = conv;
+  }
+
+  // robot (ring-mod)
+  if(preset.robot){
+    const osc = ctx.createOscillator(); osc.type='square'; osc.frequency.value = preset.robotFreq || 30;
+    const gain = ctx.createGain(); gain.gain.value = 0.5;
+    osc.connect(gain);
+    // Multiply signal amplitude by LFO -> approximate ring-mod via gain node modulation
+    last.connect(ctx.destination); // also route directly for fallback (we'll use a separate approach)
+    // Simpler approach: route last through a GainNode whose gain is modulated by oscillator
+    const modGain = ctx.createGain(); modGain.gain.value = 1.0;
+    last.connect(modGain);
+    gain.connect(modGain.gain);
+    modGain.connect(ctx.destination);
+    osc.start();
+    currentOsc = osc;
+    src.start();
+    currentSource = src;
+    stopPlay.disabled = false;
+    log('Playing with robot preset (approx)');
+    src.onended = ()=> { stopCurrentPlayback(); log('Preset play ended'); };
+    return;
+  }
+
+  last.connect(ctx.destination);
+  src.start();
+  currentSource = src;
+  stopPlay.disabled = false;
+  log('Playing with preset: ' + (preset.name || 'custom'));
+  src.onended = ()=>{ stopCurrentPlayback(); log('Preset playback ended'); };
+}
+
+// ---------- Preset management ----------
+const presets = [
+  {name:'neutral', pitch:1.0, formant:0, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'mtoto_kike', pitch:1.6, formant:2.4, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'mtoto_mvulana', pitch:1.45, formant:1.6, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'mwanaume', pitch:0.92, formant:-0.8, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'mwanamke', pitch:1.05, formant:0.6, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'mlevi', pitch:0.85, formant:-1.2, reverb:true, distort:true, robot:false, bandQ:2},
+  {name:'teja', pitch:1.1, formant:0.8, reverb:false, distort:false, robot:false, bandQ:1},
+  {name:'old_mzee', pitch:0.7, formant:-2.5, reverb:true, distort:false, robot:false, bandQ:4},
+  {name:'cartoon_high', pitch:1.8, formant:3.0, reverb:false, distort:true, robot:false, bandQ:1},
+  {name:'robot', pitch:1.0, formant:-2.0, reverb:false, distort:true, robot:true, robotFreq:40}
+];
+
+// populate UI
+function buildPresetUI(){
+  presetListDiv.innerHTML = '';
+  presets.forEach((p, i)=>{
+    const b = document.createElement('button'); b.className='presetBtn'; b.textContent = p.name;
+    b.onclick = ()=> { selectPresetIndex(i); };
+    presetListDiv.appendChild(b);
+  });
+}
+let selectedPresetIndex = 0;
+function selectPresetIndex(i){
+  selectedPresetIndex = i;
+  const p = presets[i];
+  pitch.value = p.pitch; pitch.oninput();
+  formant.value = p.formant; formant.oninput();
+  fxReverb.checked = !!p.reverb;
+  fxDist.checked = !!p.distort;
+  fxRobot.checked = !!p.robot;
+  log('Selected preset ' + p.name);
+}
+buildPresetUI();
+selectPresetIndex(0);
+
+applyPresetBtn.onclick = ()=> {
+  // build preset object from UI
+  const preset = {
+    name: 'custom',
+    pitch: parseFloat(pitch.value),
+    formant: parseFloat(formant.value),
+    reverb: fxReverb.checked,
+    distort: fxDist.checked,
+    robot: fxRobot.checked,
+    bandQ: document.getElementById('bandpass')?.checked ? 8 : 1
+  };
+  if(!rawAudioBuffer && !uploadFileBuffer){ alert('Hakuna sauti: rekodi au upload kwanza'); return; }
+  const buf = rawAudioBuffer || uploadedAudioBuffer;
+  playWithPreset(buf, preset);
+};
+
+storePresetBtn.onclick = ()=> {
+  const p = {name: 'user_'+Date.now(), pitch:parseFloat(pitch.value), formant:parseFloat(formant.value), reverb:fxReverb.checked, distort:fxDist.checked, robot:fxRobot.checked, bandQ:1};
+  presets.push(p);
+  buildPresetUI();
+  log('Custom preset saved: ' + p.name);
+};
+
+// ---------- upload handling ----------
+let uploadedAudioBuffer = null;
+upload.onchange = async (e) => {
+  const f = e.target.files[0];
+  if(!f) return;
+  const arr = await f.arrayBuffer();
+  const ctx = ensureAudioContext();
+  try {
+    uploadedAudioBuffer = await ctx.decodeAudioData(arr.slice(0));
+    log('Uploaded audio decoded. Duration: ' + uploadedAudioBuffer.duration.toFixed(2) + 's');
+    useUpload.disabled = false;
+    playRaw.disabled = false; playFx.disabled = false; saveFx.disabled = false; speakWithPresetBtn.disabled=false;
+    drawWave(uploadedAudioBuffer);
+  } catch(e){ alert('Upload decode error: ' + e.message); log('Decode error: ' + e.message); }
+};
+useUpload.onclick = ()=> { rawAudioBuffer = uploadedAudioBuffer; log('Using uploaded audio as current buffer'); };
+
+// ---------- stop play ----------
+stopPlay.onclick = ()=> { stopCurrentPlayback(); log('Playback stopped by user'); };
+
+// ---------- save processed WAV (simple resampling playbackRecord) ----------
+saveFx.onclick = async ()=>{
+  // approach: render the processed audio by playing it through OfflineAudioContext and capturing output
+  if(!rawAudioBuffer){ alert('Hakuna sauti'); return; }
+  const ctx = ensureAudioContext();
+  const preset = { pitch: parseFloat(pitch.value), formant: parseFloat(formant.value), reverb: fxReverb.checked, distort: fxDist.checked, robot: fxRobot.checked };
+  // offline length scaled by pitch
+  const length = Math.ceil(rawAudioBuffer.length / (preset.pitch || 1.0));
+  const offline = new OfflineAudioContext(rawAudioBuffer.numberOfChannels, length, ctx.sampleRate);
+  const src = offline.createBufferSource(); src.buffer = rawAudioBuffer;
+  src.playbackRate.value = preset.pitch || 1.0;
+
+  const low = offline.createBiquadFilter(); low.type='lowshelf'; low.frequency.value=300; low.gain.value = (preset.formant||0)*-2;
+  const high = offline.createBiquadFilter(); high.type='highshelf'; high.frequency.value=3000; high.gain.value=(preset.formant||0)*2;
+  const band = offline.createBiquadFilter(); band.type='bandpass'; band.frequency.value=800; band.Q.value=1;
+
+  src.connect(low); low.connect(high); high.connect(band);
+
+  let last = band;
+  if(preset.distort){ const sh = makeDistortion(offline, 400); last.connect(sh); last = sh; }
+  if(preset.reverb){ const conv = offline.createConvolver(); conv.buffer = makeImpulse(offline, 1.2, 2.0); last.connect(conv); last = conv; }
+
+  last.connect(offline.destination);
+  src.start(0);
+  log('Rendering processed audio (please wait)...');
+  const rendered = await offline.startRendering();
+  // convert to wav and download
+  function bufferToWavABuffer(abuf){
+    const numChannels = abuf.numberOfChannels;
+    const length = abuf.length * numChannels;
+    const buffer = new ArrayBuffer(44 + length * 2);
+    const view = new DataView(buffer);
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+    }
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, abuf.sampleRate, true);
+    view.setUint32(28, abuf.sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, length * 2, true);
+    // write PCM
+    let offset = 44;
+    const channels = [];
+    for (let i = 0; i < numChannels; i++) channels.push(abuf.getChannelData(i));
+    const sampleCount = abuf.length;
+    for (let i = 0; i < sampleCount; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        let s = Math.max(-1, Math.min(1, channels[ch][i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
       }
-    } catch(e){}
-
-    function timestamp() {
-      const d = new Date();
-      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
     }
+    return new Blob([view], {type:'audio/wav'});
+  }
+  const wavBlob = bufferToWavABuffer(rendered);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(wavBlob); a.download = 'kavishe-processed-'+Date.now()+'.wav'; a.click();
+  URL.revokeObjectURL(a.href);
+  log('Processed WAV downloaded.');
+};
 
-    function addLine(text, isInterim=false) {
-      if (!text) return;
-      if (isInterim) {
-        if (!interimSpan) {
-          interimSpan = document.createElement('div');
-          interimSpan.className = 'line interim';
-          interimSpan.innerHTML = `<span class="time">${timestamp()}</span><span class="txt"></span>`;
-          out.appendChild(interimSpan);
-        }
-        interimSpan.querySelector('.txt').textContent = text;
-        out.scrollTop = out.scrollHeight;
-        return;
-      }
-      // finalize: move interim into a real line OR append new
-      const entry = { t: Date.now(), text: text.trim() };
-      lines.push(entry);
-      const div = document.createElement('div');
-      div.className = 'line';
-      div.innerHTML = `<span class="time">${timestamp()}</span>${escapeHtml(entry.text)}`;
-      out.appendChild(div);
-      out.scrollTop = out.scrollHeight;
-      interimSpan?.remove();
-      interimSpan = null;
-      persist();
-    }
+// ---------- Text -> Speech ----------
+speakBtn.onclick = async ()=>{
+  const text = ttsText.value.trim();
+  if(!text) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = ttsLang.value || 'sw-TZ';
+  utter.rate = parseFloat(ttsRate.value || 1.0);
+  // choose voice closest to lang
+  const voices = speechSynthesis.getVoices();
+  const v = voices.find(x=>x.lang && x.lang.startsWith(utter.lang.split('-')[0])) || voices[0];
+  if(v) utter.voice = v;
+  speechSynthesis.cancel(); // reset
+  speechSynthesis.speak(utter);
+  log('TTS speaking using ' + (utter.lang || 'default'));
+};
 
-    function redrawTranscript() {
-      out.innerHTML = '';
-      lines.forEach(entry=>{
-        const div = document.createElement('div');
-        div.className = 'line';
-        div.innerHTML = `<span class="time">${new Date(entry.t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</span>${escapeHtml(entry.text)}`;
-        out.appendChild(div);
-      });
-      out.scrollTop = out.scrollHeight;
-    }
+// speak + apply preset: attempt to capture TTS into AudioContext then play with FX (browser support varies)
+speakWithPresetBtn.onclick = async ()=> {
+  const text = ttsText.value.trim();
+  if(!text) return;
+  // Approach: create an offscreen audio element that speaks via SpeechSynthesis and route to MediaElementSource -> WebAudio -> FX
+  // NOTE: Many browsers won't allow capturing speechSynthesis output to <audio> src; so we attempt a fallback: speak normally and ask user to record manually if needed.
+  try {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = ttsLang.value || 'sw-TZ';
+    utter.rate = parseFloat(ttsRate.value || 1.0);
+    speechSynthesis.speak(utter);
+    log('TTS spoken (FX capture limited). If you need FX applied to TTS, consider recording TTS playback or we can synthesize audio server-side.');
+  } catch(e){ log('TTS error: ' + e.message); alert('TTS + FX is limited in browser. See log.'); }
+};
 
-    function allText() {
-      return lines.map(x => `[${new Date(x.t).toLocaleTimeString()}] ${x.text}`).join('\n');
-    }
+// ---------- UI updates ----------
+pitch.oninput = ()=> { pitchVal.textContent = parseFloat(pitch.value).toFixed(2) + 'x'; };
+formant.oninput = ()=> { formVal.textContent = parseFloat(formant.value).toFixed(2); };
+ttsRate.oninput = ()=> { ttsRateVal.textContent = parseFloat(ttsRate.value).toFixed(2); };
 
-    function persist() {
-      try {
-        localStorage.setItem('kavishe_caption_lines', JSON.stringify(lines));
-        autosave.textContent = 'imehifadhiwa';
-      } catch(e) {
-        autosave.textContent = 'imeshindwa kuhifadhi';
-      }
-    }
+// ---------- initial voice list warming (some browsers need user gesture) ----------
+window.addEventListener('click', ()=> { speechSynthesis.getVoices(); }, {once:true});
 
-    function escapeHtml(s) {
-      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-    }
-
-    // ---------- Camera ----------
-    async function startCamera() {
-      try {
-        camStream?.getTracks().forEach(t=>t.stop());
-        const constraints = { video: { facingMode: currentFacing }, audio: false };
-        camStream = await navigator.mediaDevices.getUserMedia(constraints);
-        preview.srcObject = camStream;
-        await preview.play().catch(()=>{});
-        livePill.style.display = 'inline-block';
-        snapBtn.disabled = false;
-        stopCamBtn.disabled = false;
-        startCamBtn.disabled = true;
-      } catch (err) {
-        alert('Imeshindikana kuwasha kamera: ' + err.message);
-      }
-    }
-
-    function stopCamera() {
-      camStream?.getTracks().forEach(t=>t.stop());
-      camStream = null;
-      preview.srcObject = null;
-      livePill.style.display = 'none';
-      snapBtn.disabled = true;
-      stopCamBtn.disabled = true;
-      startCamBtn.disabled = false;
-    }
-
-    flipCamBtn.addEventListener('click', async ()=>{
-      currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-      facingSel.value = currentFacing;
-      if (camStream) await startCamera();
-    });
-
-    facingSel.addEventListener('change', async ()=>{
-      currentFacing = facingSel.value;
-      if (camStream) await startCamera();
-    });
-
-    startCamBtn.addEventListener('click', startCamera);
-    stopCamBtn.addEventListener('click', stopCamera);
-
-    // ---------- Mic VU Meter ----------
-    let audioCtx, analyser, dataArray;
-    async function startMicMeter() {
-      try {
-        micStream?.getTracks().forEach(t=>t.stop());
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const src = audioCtx.createMediaStreamSource(micStream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        src.connect(analyser);
-        drawVU();
-      } catch (e) {
-        vuTxt.textContent = 'Mic: haipatikani';
-      }
-    }
-
-    function drawVU() {
-      if (!analyser) return;
-      analyser.getByteTimeDomainData(dataArray);
-      // RMS
-      let sum = 0;
-      for (let i=0;i<dataArray.length;i++){
-        const v = (dataArray[i] - 128) / 128;
-        sum += v*v;
-      }
-      const rms = Math.sqrt(sum / dataArray.length);
-      const pct = Math.min(100, Math.max(0, Math.round(rms * 180)));
-      vu.style.width = pct + '%';
-      vuTxt.textContent = 'Mic: ' + pct + '%';
-      requestAnimationFrame(drawVU);
-    }
-
-    // ---------- Speech Recognition ----------
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-
-    function setupRecognition() {
-      if (!SR) {
-        startSTTBtn.disabled = true;
-        stopSTTBtn.disabled = true;
-        alert('Samahani, kifaa/Browser hakina Web Speech API. Jaribu Chrome/Edge kwenye Android na uendeshe kwenye HTTPS.');
-        return;
-      }
-      recognition = new SR();
-      recognition.lang = langSel.value || 'sw-TZ';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onresult = (e)=>{
-        let interimText = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const res = e.results[i];
-          const txt = res[0].transcript;
-          if (res.isFinal) {
-            addLine(txt, false);
-          } else {
-            interimText += txt;
-          }
-        }
-        if (interimText) addLine(interimText, true);
-      };
-
-      recognition.onend = ()=>{
-        listening = false;
-        stopSTTBtn.disabled = true;
-        startSTTBtn.disabled = false;
-      };
-
-      recognition.onerror = (e)=>{
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          alert('Ruhusu matumizi ya Mic ili kuandika maneno (STT).');
-        } else if (e.error === 'no-speech') {
-          // do nothing; common on silence
-        } else {
-          console.warn('STT error:', e.error);
-        }
-      };
-    }
-
-    function startSTT() {
-      if (!recognition) setupRecognition();
-      try {
-        recognition.lang = langSel.value || 'sw-TZ';
-        recognition.start();
-        listening = true;
-        startSTTBtn.disabled = true;
-        stopSTTBtn.disabled = false;
-      } catch(e) {
-        // ignore duplicate start
-      }
-    }
-
-    function stopSTT() {
-      try { recognition?.stop(); } catch(e){}
-      listening = false;
-      stopSTTBtn.disabled = true;
-      startSTTBtn.disabled = false;
-      if (interimSpan) { // finalize leftover interim visually (optional: drop it)
-        interimSpan.remove(); interimSpan = null;
-      }
-    }
-
-    // ---------- Snap + caption ----------
-    snapBtn.addEventListener('click', ()=>{
-      if (!camStream) return;
-      const track = camStream.getVideoTracks()[0];
-      const settings = track.getSettings();
-      const w = settings.width || preview.videoWidth || 1280;
-      const h = settings.height || preview.videoHeight || 720;
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(preview, 0, 0, w, h);
-      // draw a semi-transparent caption box with the latest text
-      const latest = (lines.at(-1)?.text || '').trim();
-      if (latest) {
-        const pad = 18;
-        const boxW = w;
-        const boxH = 72;
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(0, h - boxH - 0, boxW, boxH);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 28px system-ui, sans-serif';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(latest.slice(0, 96), pad, h - boxH/2);
-      }
-      // open image in new tab
-      const url = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `kavishe-snap-${Date.now()}.png`;
-      a.click();
-    });
-
-    // ---------- Top-level actions ----------
-    startSTTBtn.addEventListener('click', startSTT);
-    stopSTTBtn.addEventListener('click', stopSTT);
-
-    langSel.addEventListener('change', ()=>{
-      if (recognition && listening) {
-        stopSTT(); startSTT();
-      }
-    });
-
-    copyBtn.addEventListener('click', async ()=>{
-      try {
-        await navigator.clipboard.writeText(allText());
-        copyBtn.textContent = 'Imecopy ✓';
-        setTimeout(()=>copyBtn.textContent='Copy Yote', 1200);
-      } catch(e){
-        alert('Imeshindikana ku-copy: ' + e.message);
-      }
-    });
-
-    dlBtn.addEventListener('click', ()=>{
-      const blob = new Blob([allText()], {type:'text/plain;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `kavishe-transcript-${Date.now()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    clearBtn.addEventListener('click', ()=>{
-      if (!confirm('Futa maandishi yote?')) return;
-      lines = [];
-      out.innerHTML = '';
-      persist();
-    });
-
-    // ---------- Init ----------
-    (async function init(){
-      await startMicMeter();          // start mic meter (separate mic permission)
-      setupRecognition();             // prep STT
-      // Enable STT start if supported
-      if (SR) startSTTBtn.disabled = false;
-      // Autostart camera for quicker UX if allowed (non-blocking)
-      try { await startCamera(); } catch(e){}
-    })();
-  </script>
+// Final note
+log('Improved Voice Lab loaded. Record or upload a file, choose a preset and Play Preset. Use TTS for typed text.');
+</script>
 </body>
 </html>
